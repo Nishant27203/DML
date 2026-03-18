@@ -1,0 +1,146 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: dlm-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dlm_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dlm_password_secure_123}
+      POSTGRES_DB: ${POSTGRES_DB:-dlm_db}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - dlm-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dlm_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and message queue
+  redis:
+    image: redis:7-alpine
+    container_name: dlm-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - dlm-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Elasticsearch for log storage
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: dlm-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "${ELASTICSEARCH_PORT:-9200}:9200"
+      - "${ELASTICSEARCH_TRANSPORT_PORT:-9300}:9300"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - dlm-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+
+  # Ingestion API Service
+  ingestion-api:
+    build:
+      context: ./services/ingestion-api
+      dockerfile: Dockerfile
+    container_name: dlm-ingestion-api
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=${INGESTION_PORT:-3001}
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-dlm_user}:${POSTGRES_PASSWORD:-dlm_password_secure_123}@postgres:5432/${POSTGRES_DB:-dlm_db}
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
+    ports:
+      - "${INGESTION_PORT:-3001}:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - dlm-network
+    restart: unless-stopped
+
+  # Log Processing Worker Service
+  worker-service:
+    build:
+      context: ./services/worker-service
+      dockerfile: Dockerfile
+    container_name: dlm-worker
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-dlm_user}:${POSTGRES_PASSWORD:-dlm_password_secure_123}@postgres:5432/${POSTGRES_DB:-dlm_db}
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-5}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - dlm-network
+    restart: unless-stopped
+
+  # Analytics API Service
+  analytics-api:
+    build:
+      context: ./services/analytics-api
+      dockerfile: Dockerfile
+    container_name: dlm-analytics-api
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - PORT=${ANALYTICS_PORT:-3002}
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-dlm_user}:${POSTGRES_PASSWORD:-dlm_password_secure_123}@postgres:5432/${POSTGRES_DB:-dlm_db}
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
+    ports:
+      - "${ANALYTICS_PORT:-3002}:3002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - dlm-network
+    restart: unless-stopped
+
+networks:
+  dlm-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  elasticsearch_data:

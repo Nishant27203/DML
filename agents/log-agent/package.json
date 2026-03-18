@@ -1,0 +1,21 @@
+{
+  "name": "@dlm/log-agent",
+  "version": "1.0.0",
+  "description": "Lightweight log agent for DLM - collects and forwards logs",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "axios": "^1.6.2",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.4",
+    "typescript": "^5.3.3",
+    "ts-node": "^10.9.2"
+  }
+}

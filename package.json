@@ -1,0 +1,23 @@
+{
+  "name": "distributed-log-monitoring",
+  "version": "1.0.0",
+  "description": "Distributed Log Monitoring & Alerting System",
+  "private": true,
+  "workspaces": [
+    "services/*",
+    "agents/*"
+  ],
+  "scripts": {
+    "dev": "docker-compose up -d",
+    "dev:logs": "docker-compose logs -f",
+    "stop": "docker-compose down",
+    "clean": "docker-compose down -v"
+  },
+  "keywords": [
+    "log-monitoring",
+    "alerting",
+    "distributed-systems"
+  ],
+  "author": "",
+  "license": "MIT"
+}

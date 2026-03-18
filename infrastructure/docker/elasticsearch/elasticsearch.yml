@@ -1,0 +1,31 @@
+# Elasticsearch configuration for DLM
+
+# Cluster settings
+cluster.name: dlm-elasticsearch
+node.name: dlm-node-1
+
+# Paths
+path.data: /usr/share/elasticsearch/data
+path.logs: /usr/share/elasticsearch/logs
+
+# Memory
+bootstrap.memory_lock: false
+
+# Network
+network.host: 0.0.0.0
+http.port: 9200
+
+# Discovery
+discovery.type: single-node
+
+# Security (disabled for development, enable in production)
+xpack.security.enabled: false
+xpack.security.enrollment.enabled: false
+
+# Performance tuning
+indices.memory.index_buffer_size: 10%
+indices.queries.cache.size: 10%
+
+# Thread pool settings
+thread_pool.write.queue_size: 1000
+thread_pool.search.queue_size: 1000
